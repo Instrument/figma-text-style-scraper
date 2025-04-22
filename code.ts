@@ -41,11 +41,32 @@ async function extractTextStyle(node: TextNode): Promise<TextStyleInfo[]> {
   return styles;
 }
 
-// Function to scan all text nodes on the current page
+// Function to scan text nodes from a specific node or the entire page
 async function scanTextStyles(): Promise<TextStyleInfo[]> {
-  const textNodes = figma.currentPage.findAll(
-    (node) => node.type === "TEXT"
-  ) as TextNode[];
+  let textNodes: TextNode[] = [];
+
+  // Check if there are any selected nodes
+  const selectedNodes = figma.currentPage.selection;
+
+  if (selectedNodes.length > 0) {
+    // If there are selected nodes, find all text nodes within them
+    for (const node of selectedNodes) {
+      if (node.type === "TEXT") {
+        textNodes.push(node);
+      } else if ("children" in node) {
+        const childTextNodes = node.findAll(
+          (child) => child.type === "TEXT"
+        ) as TextNode[];
+        textNodes.push(...childTextNodes);
+      }
+    }
+  } else {
+    // If no selection, scan the entire page
+    textNodes = figma.currentPage.findAll(
+      (node) => node.type === "TEXT"
+    ) as TextNode[];
+  }
+
   const allStyles: TextStyleInfo[] = [];
 
   for (const node of textNodes) {
@@ -71,14 +92,28 @@ figma.showUI(__html__, { width: 400, height: 600 });
 
 // Send initial scan results to UI
 scanTextStyles().then((styles) => {
-  figma.ui.postMessage({ type: "styles", data: styles });
+  figma.ui.postMessage({
+    type: "styles",
+    data: styles,
+    selectionInfo:
+      figma.currentPage.selection.length > 0
+        ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
+        : "Scanning entire page",
+  });
 });
 
 // Handle messages from UI
 figma.ui.onmessage = (msg: { type: string }) => {
   if (msg.type === "refresh") {
     scanTextStyles().then((styles) => {
-      figma.ui.postMessage({ type: "styles", data: styles });
+      figma.ui.postMessage({
+        type: "styles",
+        data: styles,
+        selectionInfo:
+          figma.currentPage.selection.length > 0
+            ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
+            : "Scanning entire page",
+      });
     });
   }
 

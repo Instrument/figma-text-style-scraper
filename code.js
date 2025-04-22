@@ -32,10 +32,28 @@ function extractTextStyle(node) {
         return styles;
     });
 }
-// Function to scan all text nodes on the current page
+// Function to scan text nodes from a specific node or the entire page
 function scanTextStyles() {
     return __awaiter(this, void 0, void 0, function* () {
-        const textNodes = figma.currentPage.findAll((node) => node.type === "TEXT");
+        let textNodes = [];
+        // Check if there are any selected nodes
+        const selectedNodes = figma.currentPage.selection;
+        if (selectedNodes.length > 0) {
+            // If there are selected nodes, find all text nodes within them
+            for (const node of selectedNodes) {
+                if (node.type === "TEXT") {
+                    textNodes.push(node);
+                }
+                else if ("children" in node) {
+                    const childTextNodes = node.findAll((child) => child.type === "TEXT");
+                    textNodes.push(...childTextNodes);
+                }
+            }
+        }
+        else {
+            // If no selection, scan the entire page
+            textNodes = figma.currentPage.findAll((node) => node.type === "TEXT");
+        }
         const allStyles = [];
         for (const node of textNodes) {
             const nodeStyles = yield extractTextStyle(node);
@@ -53,13 +71,25 @@ function scanTextStyles() {
 figma.showUI(__html__, { width: 400, height: 600 });
 // Send initial scan results to UI
 scanTextStyles().then((styles) => {
-    figma.ui.postMessage({ type: "styles", data: styles });
+    figma.ui.postMessage({
+        type: "styles",
+        data: styles,
+        selectionInfo: figma.currentPage.selection.length > 0
+            ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
+            : "Scanning entire page",
+    });
 });
 // Handle messages from UI
 figma.ui.onmessage = (msg) => {
     if (msg.type === "refresh") {
         scanTextStyles().then((styles) => {
-            figma.ui.postMessage({ type: "styles", data: styles });
+            figma.ui.postMessage({
+                type: "styles",
+                data: styles,
+                selectionInfo: figma.currentPage.selection.length > 0
+                    ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
+                    : "Scanning entire page",
+            });
         });
     }
     // Make sure to close the plugin when you're done. Otherwise the plugin will
