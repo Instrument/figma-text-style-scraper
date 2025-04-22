@@ -18,17 +18,36 @@ function extractTextStyle(node) {
             "fontName",
             "fontSize",
             "fontWeight",
+            "lineHeight",
+            "letterSpacing",
         ]);
         for (const segment of segments) {
             // Check if the font is missing
             const isMissingFont = node.hasMissingFont;
+            // Format line height
+            let lineHeight = undefined;
+            if (segment.lineHeight && typeof segment.lineHeight !== "symbol") {
+                if (segment.lineHeight.unit === "PIXELS") {
+                    lineHeight = `${segment.lineHeight.value}px`;
+                }
+                else if (segment.lineHeight.unit === "PERCENT") {
+                    lineHeight = `${segment.lineHeight.value}%`;
+                }
+            }
+            // Format letter spacing
+            let letterSpacing = undefined;
+            if (segment.letterSpacing && typeof segment.letterSpacing !== "symbol") {
+                letterSpacing = `${segment.letterSpacing.value}px`;
+            }
             styles.push({
                 family: segment.fontName.family,
                 size: segment.fontSize,
                 weight: segment.fontWeight,
-                preview: segment.characters.slice(0, 10), // Take first 10 chars for preview
+                preview: segment.characters.slice(0, 10),
                 isMissingFont: isMissingFont,
                 instances: 1,
+                lineHeight,
+                letterSpacing,
             });
         }
         return styles;
@@ -88,7 +107,7 @@ function scanTextStyles() {
         // Convert to array and sort styles by size
         const fontFamilies = Array.from(familyMap.values());
         fontFamilies.forEach((family) => {
-            family.styles.sort((a, b) => a.size - b.size);
+            family.styles.sort((a, b) => b.size - a.size); // Sort by size descending
         });
         // Sort families alphabetically
         return fontFamilies.sort((a, b) => a.name.localeCompare(b.name));

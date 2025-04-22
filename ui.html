@@ -86,17 +86,55 @@
         align-items: center;
       }
 
+      .size-weight {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-feature-settings:
+          "tnum" on,
+          "lnum" on;
+      }
+
+      .size-text {
+        font-weight: 500;
+      }
+
+      .weight-text {
+        color: #666;
+      }
+
       .instance-count {
         background: #e8e8e8;
         padding: 2px 8px;
         border-radius: 12px;
         font-size: 12px;
         color: #666;
+        font-feature-settings:
+          "tnum" on,
+          "lnum" on;
       }
 
       .style-details {
         font-size: 12px;
         color: #666;
+        display: flex;
+        gap: 12px;
+      }
+
+      .style-details span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .style-details .label {
+        opacity: 0.7;
+      }
+
+      .style-details .value {
+        font-feature-settings:
+          "tnum" on,
+          "lnum" on;
       }
     </style>
   </head>
@@ -114,6 +152,11 @@
       const styleList = document.getElementById("styleList");
       const refreshButton = document.getElementById("refresh");
       const selectionInfo = document.getElementById("selectionInfo");
+
+      function formatNumber(num) {
+        // Round to at most 2 decimal places and remove trailing zeros
+        return Number(num.toFixed(2)).toString();
+      }
 
       function updateStyles(fontFamilies, selectionInfoText) {
         styleList.innerHTML = "";
@@ -136,9 +179,20 @@
             const preview = document.createElement("div");
             preview.className = "preview-text";
 
-            const previewText = document.createElement("span");
-            previewText.textContent = `${style.size}px × ${style.instances} instance${style.instances > 1 ? "s" : ""}`;
-            preview.appendChild(previewText);
+            const sizeWeight = document.createElement("div");
+            sizeWeight.className = "size-weight";
+
+            const sizeText = document.createElement("span");
+            sizeText.className = "size-text";
+            sizeText.textContent = `${formatNumber(style.size)}px`;
+            sizeWeight.appendChild(sizeText);
+
+            const weightText = document.createElement("span");
+            weightText.className = "weight-text";
+            weightText.textContent = style.weight;
+            sizeWeight.appendChild(weightText);
+
+            preview.appendChild(sizeWeight);
 
             const instanceCount = document.createElement("span");
             instanceCount.className = "instance-count";
@@ -147,10 +201,39 @@
 
             const details = document.createElement("div");
             details.className = "style-details";
-            details.textContent = `Preview: "${style.preview}", Weight: ${style.weight}`;
+
+            // Add line height if available
+            if (style.lineHeight) {
+              const lineSpan = document.createElement("span");
+              const lineLabel = document.createElement("span");
+              lineLabel.className = "label";
+              lineLabel.textContent = "Line";
+              const lineValue = document.createElement("span");
+              lineValue.className = "value";
+              lineValue.textContent = style.lineHeight;
+              lineSpan.appendChild(lineLabel);
+              lineSpan.appendChild(lineValue);
+              details.appendChild(lineSpan);
+            }
+
+            // Add letter spacing if available
+            if (style.letterSpacing && style.letterSpacing !== "0px") {
+              const spacingSpan = document.createElement("span");
+              const spacingLabel = document.createElement("span");
+              spacingLabel.className = "label";
+              spacingLabel.textContent = "Spacing";
+              const spacingValue = document.createElement("span");
+              spacingValue.className = "value";
+              spacingValue.textContent = style.letterSpacing;
+              spacingSpan.appendChild(spacingLabel);
+              spacingSpan.appendChild(spacingValue);
+              details.appendChild(spacingSpan);
+            }
 
             li.appendChild(preview);
-            li.appendChild(details);
+            if (details.children.length > 0) {
+              li.appendChild(details);
+            }
             familyDiv.appendChild(li);
           });
 
