@@ -20,13 +20,14 @@ function extractTextStyle(node) {
             "fontWeight",
         ]);
         for (const segment of segments) {
-            // Load the font if needed
-            yield figma.loadFontAsync(segment.fontName);
+            // Check if the font is missing
+            const isMissingFont = node.hasMissingFont;
             styles.push({
                 family: segment.fontName.family,
                 size: segment.fontSize,
                 weight: segment.fontWeight,
                 preview: segment.characters.slice(0, 10), // Take first 10 chars for preview
+                isMissingFont: isMissingFont,
             });
         }
         return styles;

@@ -97,10 +97,7 @@
 
           const preview = document.createElement("div");
           preview.className = "preview-text";
-          preview.style.fontFamily = style.family;
-          preview.style.fontSize = `${style.size}px`;
-          preview.style.fontWeight = style.weight;
-          preview.textContent = style.preview;
+          preview.textContent = `"${style.preview}" in ${style.family}${style.isMissingFont ? " (missing font)" : ""}`;
 
           const details = document.createElement("div");
           details.className = "style-details";

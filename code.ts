@@ -13,6 +13,7 @@ interface TextStyleInfo {
   size: number;
   weight: number;
   preview: string;
+  isMissingFont: boolean;
 }
 
 // Function to extract style properties from a text node
@@ -27,14 +28,15 @@ async function extractTextStyle(node: TextNode): Promise<TextStyleInfo[]> {
   ]);
 
   for (const segment of segments) {
-    // Load the font if needed
-    await figma.loadFontAsync(segment.fontName);
+    // Check if the font is missing
+    const isMissingFont = node.hasMissingFont;
 
     styles.push({
       family: segment.fontName.family,
       size: segment.fontSize,
       weight: segment.fontWeight,
       preview: segment.characters.slice(0, 10), // Take first 10 chars for preview
+      isMissingFont: isMissingFont,
     });
   }
 
