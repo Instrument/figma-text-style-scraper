@@ -14,6 +14,13 @@ interface TextStyleInfo {
   weight: number;
   preview: string;
   isMissingFont: boolean;
+  instances: number;
+}
+
+interface FontFamily {
+  name: string;
+  styles: TextStyleInfo[];
+  isMissingFont: boolean;
 }
 
 // Function to extract style properties from a text node
@@ -37,6 +44,7 @@ async function extractTextStyle(node: TextNode): Promise<TextStyleInfo[]> {
       weight: segment.fontWeight,
       preview: segment.characters.slice(0, 10), // Take first 10 chars for preview
       isMissingFont: isMissingFont,
+      instances: 1,
     });
   }
 
@@ -44,7 +52,7 @@ async function extractTextStyle(node: TextNode): Promise<TextStyleInfo[]> {
 }
 
 // Function to scan text nodes from a specific node or the entire page
-async function scanTextStyles(): Promise<TextStyleInfo[]> {
+async function scanTextStyles(): Promise<FontFamily[]> {
   let textNodes: TextNode[] = [];
 
   // Check if there are any selected nodes
@@ -76,27 +84,51 @@ async function scanTextStyles(): Promise<TextStyleInfo[]> {
     allStyles.push(...nodeStyles);
   }
 
-  // Remove duplicates and sort by size
-  const uniqueStyles = Array.from(
-    new Map(
-      allStyles.map((style) => [
-        `${style.family}-${style.size}-${style.weight}`,
-        style,
-      ])
-    ).values()
-  ).sort((a, b) => b.size - a.size);
+  // Group styles by family and size
+  const styleMap = new Map<string, TextStyleInfo>();
 
-  return uniqueStyles;
+  allStyles.forEach((style) => {
+    const key = `${style.family}-${style.size}-${style.weight}`;
+    if (styleMap.has(key)) {
+      const existingStyle = styleMap.get(key)!;
+      existingStyle.instances++;
+    } else {
+      styleMap.set(key, { ...style });
+    }
+  });
+
+  // Group by family
+  const familyMap = new Map<string, FontFamily>();
+
+  Array.from(styleMap.values()).forEach((style) => {
+    if (!familyMap.has(style.family)) {
+      familyMap.set(style.family, {
+        name: style.family,
+        styles: [],
+        isMissingFont: style.isMissingFont,
+      });
+    }
+    familyMap.get(style.family)!.styles.push(style);
+  });
+
+  // Convert to array and sort styles by size
+  const fontFamilies = Array.from(familyMap.values());
+  fontFamilies.forEach((family) => {
+    family.styles.sort((a, b) => a.size - b.size);
+  });
+
+  // Sort families alphabetically
+  return fontFamilies.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__, { width: 400, height: 600 });
 
 // Send initial scan results to UI
-scanTextStyles().then((styles) => {
+scanTextStyles().then((fontFamilies) => {
   figma.ui.postMessage({
     type: "styles",
-    data: styles,
+    data: fontFamilies,
     selectionInfo:
       figma.currentPage.selection.length > 0
         ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
@@ -107,10 +139,10 @@ scanTextStyles().then((styles) => {
 // Handle messages from UI
 figma.ui.onmessage = (msg: { type: string }) => {
   if (msg.type === "refresh") {
-    scanTextStyles().then((styles) => {
+    scanTextStyles().then((fontFamilies) => {
       figma.ui.postMessage({
         type: "styles",
-        data: styles,
+        data: fontFamilies,
         selectionInfo:
           figma.currentPage.selection.length > 0
             ? `Scanning ${figma.currentPage.selection.length} selected node(s)`

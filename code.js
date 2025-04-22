@@ -28,6 +28,7 @@ function extractTextStyle(node) {
                 weight: segment.fontWeight,
                 preview: segment.characters.slice(0, 10), // Take first 10 chars for preview
                 isMissingFont: isMissingFont,
+                instances: 1,
             });
         }
         return styles;
@@ -60,21 +61,46 @@ function scanTextStyles() {
             const nodeStyles = yield extractTextStyle(node);
             allStyles.push(...nodeStyles);
         }
-        // Remove duplicates and sort by size
-        const uniqueStyles = Array.from(new Map(allStyles.map((style) => [
-            `${style.family}-${style.size}-${style.weight}`,
-            style,
-        ])).values()).sort((a, b) => b.size - a.size);
-        return uniqueStyles;
+        // Group styles by family and size
+        const styleMap = new Map();
+        allStyles.forEach((style) => {
+            const key = `${style.family}-${style.size}-${style.weight}`;
+            if (styleMap.has(key)) {
+                const existingStyle = styleMap.get(key);
+                existingStyle.instances++;
+            }
+            else {
+                styleMap.set(key, Object.assign({}, style));
+            }
+        });
+        // Group by family
+        const familyMap = new Map();
+        Array.from(styleMap.values()).forEach((style) => {
+            if (!familyMap.has(style.family)) {
+                familyMap.set(style.family, {
+                    name: style.family,
+                    styles: [],
+                    isMissingFont: style.isMissingFont,
+                });
+            }
+            familyMap.get(style.family).styles.push(style);
+        });
+        // Convert to array and sort styles by size
+        const fontFamilies = Array.from(familyMap.values());
+        fontFamilies.forEach((family) => {
+            family.styles.sort((a, b) => a.size - b.size);
+        });
+        // Sort families alphabetically
+        return fontFamilies.sort((a, b) => a.name.localeCompare(b.name));
     });
 }
 // This shows the HTML page in "ui.html".
 figma.showUI(__html__, { width: 400, height: 600 });
 // Send initial scan results to UI
-scanTextStyles().then((styles) => {
+scanTextStyles().then((fontFamilies) => {
     figma.ui.postMessage({
         type: "styles",
-        data: styles,
+        data: fontFamilies,
         selectionInfo: figma.currentPage.selection.length > 0
             ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
             : "Scanning entire page",
@@ -83,10 +109,10 @@ scanTextStyles().then((styles) => {
 // Handle messages from UI
 figma.ui.onmessage = (msg) => {
     if (msg.type === "refresh") {
-        scanTextStyles().then((styles) => {
+        scanTextStyles().then((fontFamilies) => {
             figma.ui.postMessage({
                 type: "styles",
-                data: styles,
+                data: fontFamilies,
                 selectionInfo: figma.currentPage.selection.length > 0
                     ? `Scanning ${figma.currentPage.selection.length} selected node(s)`
                     : "Scanning entire page",

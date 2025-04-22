@@ -52,6 +52,23 @@
         margin: 0;
       }
 
+      .font-family {
+        margin-bottom: 24px;
+      }
+
+      .font-family-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: #f5f5f5;
+        border-radius: 6px;
+      }
+
+      .font-family-name.missing {
+        color: #ff6b6b;
+      }
+
       .style-item {
         padding: 12px;
         border-bottom: 1px solid #e5e5e5;
@@ -64,6 +81,17 @@
       .preview-text {
         font-size: 14px;
         margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .instance-count {
+        background: #e8e8e8;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        color: #666;
       }
 
       .style-details {
@@ -79,7 +107,7 @@
         <button class="refresh-button" id="refresh">Refresh</button>
       </div>
       <div class="selection-info" id="selectionInfo"></div>
-      <ul class="style-list" id="styleList"></ul>
+      <div class="style-list" id="styleList"></div>
     </div>
 
     <script>
@@ -87,25 +115,46 @@
       const refreshButton = document.getElementById("refresh");
       const selectionInfo = document.getElementById("selectionInfo");
 
-      function updateStyles(styles, selectionInfoText) {
+      function updateStyles(fontFamilies, selectionInfoText) {
         styleList.innerHTML = "";
         selectionInfo.textContent = selectionInfoText;
 
-        styles.forEach((style) => {
-          const li = document.createElement("li");
-          li.className = "style-item";
+        fontFamilies.forEach((family) => {
+          const familyDiv = document.createElement("div");
+          familyDiv.className = "font-family";
 
-          const preview = document.createElement("div");
-          preview.className = "preview-text";
-          preview.textContent = `"${style.preview}" in ${style.family}${style.isMissingFont ? " (missing font)" : ""}`;
+          const familyName = document.createElement("div");
+          familyName.className = `font-family-name${family.isMissingFont ? " missing" : ""}`;
+          familyName.textContent =
+            family.name + (family.isMissingFont ? " (missing font)" : "");
+          familyDiv.appendChild(familyName);
 
-          const details = document.createElement("div");
-          details.className = "style-details";
-          details.textContent = `Family: ${style.family}, Size: ${style.size}px, Weight: ${style.weight}`;
+          family.styles.forEach((style) => {
+            const li = document.createElement("div");
+            li.className = "style-item";
 
-          li.appendChild(preview);
-          li.appendChild(details);
-          styleList.appendChild(li);
+            const preview = document.createElement("div");
+            preview.className = "preview-text";
+
+            const previewText = document.createElement("span");
+            previewText.textContent = `${style.size}px × ${style.instances} instance${style.instances > 1 ? "s" : ""}`;
+            preview.appendChild(previewText);
+
+            const instanceCount = document.createElement("span");
+            instanceCount.className = "instance-count";
+            instanceCount.textContent = `${style.instances}`;
+            preview.appendChild(instanceCount);
+
+            const details = document.createElement("div");
+            details.className = "style-details";
+            details.textContent = `Preview: "${style.preview}", Weight: ${style.weight}`;
+
+            li.appendChild(preview);
+            li.appendChild(details);
+            familyDiv.appendChild(li);
+          });
+
+          styleList.appendChild(familyDiv);
         });
       }
 
