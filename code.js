@@ -39,16 +39,26 @@ function extractTextStyle(node) {
             if (segment.letterSpacing && typeof segment.letterSpacing !== "symbol") {
                 letterSpacing = `${segment.letterSpacing.value}px`;
             }
-            styles.push({
-                family: segment.fontName.family,
-                size: segment.fontSize,
-                weight: segment.fontWeight,
-                preview: segment.characters.slice(0, 10),
-                isMissingFont: isMissingFont,
-                instances: 1,
-                lineHeight,
-                letterSpacing,
-            });
+            const existingStyle = styles.find((s) => s.family === segment.fontName.family &&
+                s.size === segment.fontSize &&
+                s.weight === segment.fontWeight);
+            if (existingStyle) {
+                existingStyle.instances++;
+                existingStyle.nodeIds.push(node.id);
+            }
+            else {
+                styles.push({
+                    family: segment.fontName.family,
+                    size: segment.fontSize,
+                    weight: segment.fontWeight,
+                    preview: segment.characters.slice(0, 10),
+                    isMissingFont: isMissingFont,
+                    instances: 1,
+                    lineHeight,
+                    letterSpacing,
+                    nodeIds: [node.id],
+                });
+            }
         }
         return styles;
     });
@@ -87,6 +97,7 @@ function scanTextStyles() {
             if (styleMap.has(key)) {
                 const existingStyle = styleMap.get(key);
                 existingStyle.instances++;
+                existingStyle.nodeIds.push(...style.nodeIds);
             }
             else {
                 styleMap.set(key, Object.assign({}, style));
@@ -111,6 +122,45 @@ function scanTextStyles() {
         });
         // Sort families alphabetically
         return fontFamilies.sort((a, b) => a.name.localeCompare(b.name));
+    });
+}
+// Function to select and zoom to nodes
+function selectAndZoomToNodes(nodeIds) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Get all the nodes
+        const nodes = yield Promise.all(nodeIds.map((id) => figma.getNodeByIdAsync(id)));
+        const textNodes = nodes.filter((node) => node !== null && node.type === "TEXT");
+        if (textNodes.length === 0)
+            return;
+        // Select all the nodes
+        figma.currentPage.selection = textNodes;
+        // Calculate the bounding box that contains all nodes
+        const bounds = textNodes.reduce((acc, node) => {
+            const nodeBounds = node.absoluteBoundingBox;
+            if (!acc)
+                return nodeBounds;
+            return {
+                x: Math.min(acc.x, nodeBounds.x),
+                y: Math.min(acc.y, nodeBounds.y),
+                width: Math.max(acc.x + acc.width, nodeBounds.x + nodeBounds.width) -
+                    Math.min(acc.x, nodeBounds.x),
+                height: Math.max(acc.y + acc.height, nodeBounds.y + nodeBounds.height) -
+                    Math.min(acc.y, nodeBounds.y),
+            };
+        }, null);
+        if (bounds) {
+            // Add some padding around the selection
+            const padding = 100;
+            // Create a frame to zoom to (will be removed immediately)
+            const frame = figma.createFrame();
+            frame.resize(bounds.width + padding * 2, bounds.height + padding * 2);
+            frame.x = bounds.x - padding;
+            frame.y = bounds.y - padding;
+            // Zoom to the frame
+            figma.viewport.scrollAndZoomIntoView([frame]);
+            // Remove the temporary frame
+            frame.remove();
+        }
     });
 }
 // This shows the HTML page in "ui.html".
@@ -138,7 +188,12 @@ figma.ui.onmessage = (msg) => {
             });
         });
     }
-    // Make sure to close the plugin when you're done. Otherwise the plugin will
-    // keep running, which shows the cancel button at the bottom of the screen.
-    figma.closePlugin();
+    else if (msg.type === "select" && msg.nodeIds) {
+        selectAndZoomToNodes(msg.nodeIds);
+    }
+    // Don't close the plugin anymore when receiving messages
+    // Only close when explicitly requested
+    if (msg.type === "close") {
+        figma.closePlugin();
+    }
 };

@@ -72,10 +72,20 @@
       .style-item {
         padding: 12px;
         border-bottom: 1px solid #e5e5e5;
+        cursor: pointer;
+        transition: background-color 0.1s ease;
       }
 
-      .style-item:last-child {
-        border-bottom: none;
+      .style-item:hover {
+        background-color: #f5f5f5;
+      }
+
+      .style-item:active {
+        background-color: #eee;
+      }
+
+      .style-item.selected {
+        background-color: #e8f2ff;
       }
 
       .preview-text {
@@ -176,6 +186,32 @@
             const li = document.createElement("div");
             li.className = "style-item";
 
+            // Store nodeIds as a data attribute
+            li.dataset.nodeIds = JSON.stringify(style.nodeIds);
+
+            // Add click handler
+            li.addEventListener("click", (e) => {
+              // Remove selected class from all items
+              document.querySelectorAll(".style-item").forEach((item) => {
+                item.classList.remove("selected");
+              });
+
+              // Add selected class to clicked item
+              li.classList.add("selected");
+
+              // Send message to plugin to select nodes
+              const nodeIds = JSON.parse(li.dataset.nodeIds);
+              parent.postMessage(
+                {
+                  pluginMessage: {
+                    type: "select",
+                    nodeIds: nodeIds,
+                  },
+                },
+                "*"
+              );
+            });
+
             const preview = document.createElement("div");
             preview.className = "preview-text";
 
@@ -216,7 +252,7 @@
               details.appendChild(lineSpan);
             }
 
-            // Add letter spacing if available
+            // Add letter spacing if available and not 0px
             if (style.letterSpacing && style.letterSpacing !== "0px") {
               const spacingSpan = document.createElement("span");
               const spacingLabel = document.createElement("span");
